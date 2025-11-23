@@ -47,14 +47,14 @@ jobs:
       - name: Setup kubeconfig
         run: |
           mkdir -p ~/.kube
-          echo &quot;${{ secrets.KUBE_CONFIG }}&quot; > ~/.kube/config
+          echo "${{ secrets.KUBE_CONFIG }}" > ~/.kube/config
 
       - name: Test cluster connection
         run: kubectl cluster-info
 
       - name: Update image tag
         run: |
-          sed -i &quot;s|karthickkatty1/my-app:latest|karthickkatty1/my-app:${{ github.sha }}|g&quot; k8s/deployment.yaml
+          sed -i "s|karthickkatty1/my-app:latest|karthickkatty1/my-app:${{ github.sha }}|g" k8s/deployment.yaml
 
       - name: Deploy to Kubernetes
         run: |

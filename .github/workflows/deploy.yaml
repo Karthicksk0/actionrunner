@@ -62,4 +62,3 @@ steps:
     run: |
       kubectl get pods -o wide
 
-

@@ -49,6 +49,9 @@ jobs:
           mkdir -p ~/.kube
           echo "${{ secrets.KUBE_CONFIG }}" > ~/.kube/config
 
+      - name: Show kubeconfig
+        run: cat ~/.kube/config
+
       - name: Update image tag
         run: |
           sed -i "s|latest|${{ github.sha }}|g" k8s/deployment.yaml

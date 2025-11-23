@@ -1,35 +1,42 @@
-deploy:
-  needs: build
-  runs-on: ubuntu-latest
-  steps:
-    - name: Checkout
-      uses: actions/checkout@v3
+name: Deploy to Kubernetes
 
-    - name: Install kubectl
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y kubectl
+on:
+  push:
+    branches:
+      - main
 
-    # ⬇️ Create kubeconfig from GitHub Secret
-    - name: Setup kubeconfig
-      run: |
-        mkdir -p ~/.kube
-        echo "${{ secrets.KUBE_CONFIG }}" > ~/.kube/config
+jobs:
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
 
-    - name: Test cluster connection
-      run: kubectl cluster-info
+      - name: Install kubectl
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y kubectl
 
-    - name: Update image tag
-      run: |
-        sed -i "s|karthickkatty1/my-app:latest|karthickkatty1/my-app:${{ github.sha }}|g" k8s/deployment.yaml
+      - name: Setup kubeconfig
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBE_CONFIG }}" > ~/.kube/config
 
-    - name: Check updated deployment.yaml
-      run: cat k8s/deployment.yaml
+      - name: Test cluster connection
+        run: kubectl cluster-info
 
-    - name: Deploy to Kubernetes
-      run: |
-        kubectl apply -f k8s/deployment.yaml
-        kubectl apply -f k8s/service.yaml
+      - name: Update image tag
+        run: |
+          sed -i "s|karthickkatty1/my-app:latest|karthickkatty1/my-app:${{ github.sha }}|g" k8s/deployment.yaml
 
-    - name: Verify Deployment
-      run: kubectl get pods -o wide
+      - name: Check updated deployment.yaml
+        run: cat k8s/deployment.yaml
+
+      - name: Deploy to Kubernetes
+        run: |
+          kubectl apply -f k8s/deployment.yaml
+          kubectl apply -f k8s/service.yaml
+
+      - name: Verify Deployment
+        run: kubectl get pods -o wide

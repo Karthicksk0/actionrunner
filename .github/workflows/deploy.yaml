@@ -1,53 +1,66 @@
 name: CI/CD deploy to Minikube
 
 on:
-  push:
-    branches: ["main"]
+push:
+branches: ["main"]
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
+build:
+runs-on: ubuntu-latest
 
-    steps:
-      # Checkout code
-      - name: Checkout repo
-        uses: actions/checkout@v4
+```
+steps:
+# 1️⃣ Checkout code
+- name: Checkout repo
+  uses: actions/checkout@v3
 
-      # Login to Docker Hub (optional)
-      - name: Login to Docker Hub
-        if: env.DOCKERHUB_USERNAME != ''
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+# 2️⃣ Install docker
+- name: Install Docker
+  run: |
+    sudo apt-get update
+    sudo apt-get install -y docker.io
 
-      # Build Docker image
-      - name: Build Docker Image
-        run: |
-          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/demo-app:latest .
+# 3️⃣ Install kubectl
+- name: Install kubectl
+  run: |
+    sudo apt-get update
+    sudo apt-get install -y kubectl
 
-      # Push Docker Hub
-      - name: Push Docker
-        if: env.DOCKERHUB_USERNAME != ''
-        run: |
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/demo-app:latest
+# 4️⃣ Create kubeconfig files from GitHub secrets
+- name: Create kubeconfig files
+  run: |
+    mkdir -p ~/.kube
+    echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > ~/.kube/config
 
-      # Setup kubectl
-      - name: Install kubectl
-        run: |
-          sudo apt-get update -y
-          sudo snap install kubectl --classic
+    mkdir -p ~/.minikube
+    echo "${{ secrets.KUBE_CLIENT_KEY }}"  | base64 -d > ~/.minikube/client.key
+    echo "${{ secrets.KUBE_CLIENT_CERT }}" | base64 -d > ~/.minikube/client.crt
+    echo "${{ secrets.KUBE_CA_CERT }}"    | base64 -d > ~/.minikube/ca.crt
 
-      # Configure kubeconfig
-      - name: Setup kubeconfig
-        run: |
-          mkdir -p ~/.kube
-          echo "${{ secrets.KUBE_CONFIG }}" > ~/.kube/config
+# 5️⃣ Build docker image (locally in GitHub runner)
+- name: Build Docker image
+  run: |
+    docker build -t demo-app:latest .
 
-      # Deploy to Kubernetes — replaces image automatically
-      - name: Deploy
-        run: |
-          sed -i "s|<IMAGE_PLACEHOLDER>|${{ secrets.DOCKERHUB_USERNAME }}/demo-app:latest|g" k8s/deployment.yaml
-          kubectl apply -f k8s/deployment.yaml
-          kubectl apply -f k8s/service.yaml
+# 6️⃣ Point docker build system to Minikube environment
+- name: Setup Minikube Docker environment
+  run: |
+    eval $(minikube -p minikube docker-env)
+
+# 7️⃣ Build again inside Minikube Docker
+- name: Build Docker image inside Minikube
+  run: |
+    docker build -t demo-app:latest .
+
+# 8️⃣ Deploy to Kubernetes
+- name: Deploy to Minikube
+  run: |
+    kubectl apply -f k8s/deployment.yaml
+    kubectl apply -f k8s/service.yaml
+
+# 9️⃣ Check deployment status
+- name: Show Deployment Status
+  run: |
+    kubectl get pods -o wide
+```
 

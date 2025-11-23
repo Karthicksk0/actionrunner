@@ -2,63 +2,74 @@ name: CI/CD deploy to Minikube
 
 on:
 push:
-branches: ["main"]
+branches:
+- main
+
+env:
+PERSONAL_ACCESS_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
 
 jobs:
 build:
 runs-on: ubuntu-latest
 
-
 steps:
-  - name: Checkout repo
+  - name: Checkout code
     uses: actions/checkout@v3
 
-  # Install kubectl
+  - name: Set up Node.js
+    uses: actions/setup-node@v3
+    with:
+      node-version: '14'
+
+  - name: Install Node.js dependencies
+    run: npm install
+
+  - name: Build Docker image
+    run: docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/my-app:${{ github.sha }} .
+
+  - name: Log in to DockerHub
+    run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+
+  - name: Push Docker image
+    run: docker push ${{ secrets.DOCKERHUB_USERNAME }}/my-app:${{ github.sha }}
+
+deploy:
+needs: build
+runs-on: ubuntu-latest
+
+steps:
+  - name: Checkout code
+    uses: actions/checkout@v3
+
   - name: Install kubectl
     run: |
       sudo apt-get update
       sudo apt-get install -y kubectl
 
-  # Install Minikube
   - name: Install Minikube
     run: |
       curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
       sudo install minikube-linux-amd64 /usr/local/bin/minikube
 
-  # Start Minikube
   - name: Start Minikube
     run: |
       sudo minikube start --driver=docker
 
-  # Create kubeconfig files from secrets
-  - name: Create kubeconfig files
-    run: |
-      mkdir -p ~/.kube
-      echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > ~/.kube/config
-      mkdir -p ~/.minikube
-      echo "${{ secrets.KUBE_CLIENT_KEY }}"  | base64 -d > ~/.minikube/client.key
-      echo "${{ secrets.KUBE_CLIENT_CERT }}" | base64 -d > ~/.minikube/client.crt
-      echo "${{ secrets.KUBE_CA_CERT }}"    | base64 -d > ~/.minikube/ca.crt
-
-  # Use Docker inside Minikube
-  - name: Setup Minikube Docker environment
+  - name: Use Minikube Docker ENV
     run: |
       eval $(minikube -p minikube docker-env)
 
-  # Build Docker image inside Minikube
-  - name: Build Docker image
+  - name: Build Docker image inside Minikube
     run: |
       docker build -t demo-app:latest .
 
-  # Deploy to Kubernetes
   - name: Deploy to Minikube
     run: |
       kubectl apply -f k8s/deployment.yaml
       kubectl apply -f k8s/service.yaml
 
-  # Show status
-  - name: Show Deployment Status
-    run: |
-      kubectl get pods -o wide
-
+  - name: Show deployment status
+    run: kubectl get pods -o wide
 

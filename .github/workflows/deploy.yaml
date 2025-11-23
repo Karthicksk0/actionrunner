@@ -47,7 +47,7 @@ jobs:
       - name: Save kubeconfig
         run: |
           mkdir -p ~/.kube
-          echo "${{ secrets.KUBE_CONFIG }}" > ~/.kube/config
+          printf "%s" "${{ secrets.KUBE_CONFIG }}" > ~/.kube/config
 
       - name: Show kubeconfig
         run: cat ~/.kube/config

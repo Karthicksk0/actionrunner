@@ -1,68 +1,35 @@
-name: CI/CD Deploy
+deploy:
+  needs: build
+  runs-on: ubuntu-latest
+  steps:
+    - name: Checkout
+      uses: actions/checkout@v3
 
-on:
-  push:
-    branches:
-      - main
+    - name: Install kubectl
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y kubectl
 
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
+    # ⬇️ Create kubeconfig from GitHub Secret
+    - name: Setup kubeconfig
+      run: |
+        mkdir -p ~/.kube
+        echo "${{ secrets.KUBE_CONFIG }}" > ~/.kube/config
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: 18
+    - name: Test cluster connection
+      run: kubectl cluster-info
 
-      - name: Install dependencies
-        run: npm install
+    - name: Update image tag
+      run: |
+        sed -i "s|karthickkatty1/my-app:latest|karthickkatty1/my-app:${{ github.sha }}|g" k8s/deployment.yaml
 
-      - name: Docker Build
-        run: docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/my-app:${{ github.sha }} .
+    - name: Check updated deployment.yaml
+      run: cat k8s/deployment.yaml
 
-      - name: Login to DockerHub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+    - name: Deploy to Kubernetes
+      run: |
+        kubectl apply -f k8s/deployment.yaml
+        kubectl apply -f k8s/service.yaml
 
-      - name: Push Image
-        run: docker push ${{ secrets.DOCKERHUB_USERNAME }}/my-app:${{ github.sha }}
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-
-      - name: Install kubectl
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y kubectl
-
-      - name: Save kubeconfig
-        run: |
-          mkdir -p ~/.kube
-          printf "%s" "${{ secrets.KUBE_CONFIG }}" > ~/.kube/config
-
-      - name: Show kubeconfig
-        run: cat ~/.kube/config
-
-      - name: Update image tag
-        run: |
-          sed -i "s|karthickkatty1/my-app:latest|karthickkatty1/my-app:${{ github.sha }}|g" k8s/deployment.yaml
-
-      - name: Check updated deployment.yaml
-        run: cat k8s/deployment.yaml
-
-      - name: Deploy to Kubernetes
-        run: |
-          kubectl apply -f k8s/deployment.yaml
-          kubectl apply -f k8s/service.yaml
-
-      - name: Verify
-        run: kubectl get pods -o wide
+    - name: Verify Deployment
+      run: kubectl get pods -o wide

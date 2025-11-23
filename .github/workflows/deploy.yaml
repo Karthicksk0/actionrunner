@@ -47,11 +47,11 @@ jobs:
       - name: Save kubeconfig
         run: |
           mkdir -p ~/.kube
-          echo &quot;${{ secrets.KUBE_CONFIG }}&quot; > ~/.kube/config
+          echo "${{ secrets.KUBE_CONFIG }}" > ~/.kube/config
 
       - name: Update image tag
         run: |
-          sed -i &quot;s|latest|${{ github.sha }}|g&quot; k8s/deployment.yaml
+          sed -i "s|latest|${{ github.sha }}|g" k8s/deployment.yaml
 
       - name: Deploy to Kubernetes
         run: |

@@ -1,4 +1,4 @@
-name: Deploy to Kubernetes
+name: CI/CD
 
 on:
   push:
@@ -6,6 +6,32 @@ on:
       - main
 
 jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Docker Build
+        run: docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/my-app:${{ github.sha }} .
+
+      - name: Login to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Push Image
+        run: docker push ${{ secrets.DOCKERHUB_USERNAME }}/my-app:${{ github.sha }}
+
   deploy:
     needs: build
     runs-on: ubuntu-latest
@@ -21,17 +47,14 @@ jobs:
       - name: Setup kubeconfig
         run: |
           mkdir -p ~/.kube
-          echo "${{ secrets.KUBE_CONFIG }}" > ~/.kube/config
+          echo &quot;${{ secrets.KUBE_CONFIG }}&quot; > ~/.kube/config
 
       - name: Test cluster connection
         run: kubectl cluster-info
 
       - name: Update image tag
         run: |
-          sed -i "s|karthickkatty1/my-app:latest|karthickkatty1/my-app:${{ github.sha }}|g" k8s/deployment.yaml
-
-      - name: Check updated deployment.yaml
-        run: cat k8s/deployment.yaml
+          sed -i &quot;s|karthickkatty1/my-app:latest|karthickkatty1/my-app:${{ github.sha }}|g&quot; k8s/deployment.yaml
 
       - name: Deploy to Kubernetes
         run: |

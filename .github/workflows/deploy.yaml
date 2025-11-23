@@ -54,7 +54,10 @@ jobs:
 
       - name: Update image tag
         run: |
-          sed -i "s|latest|${{ github.sha }}|g" k8s/deployment.yaml
+          sed -i "s|karthickkatty1/my-app:latest|karthickkatty1/my-app:${{ github.sha }}|g" k8s/deployment.yaml
+
+      - name: Check updated deployment.yaml
+        run: cat k8s/deployment.yaml
 
       - name: Deploy to Kubernetes
         run: |

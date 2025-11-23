@@ -1,67 +1,65 @@
+```yaml
 name: CI/CD Deploy
 
 on:
-push:
-branches: ["main"]
+  push:
+    branches:
+      - main
 
 jobs:
-build:
-runs-on: ubuntu-latest
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
 
-steps:
-  - name: Checkout
-    uses: actions/checkout@v3
+      - name: Install dependencies
+        run: npm install
 
-  - name: Set up Node.js
-    uses: actions/setup-node@v3
-    with:
-      node-version: 18
+      - name: Docker Build
+        run: docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/my-app:${{ github.sha }} .
 
-  - name: Install dependencies
-    run: npm install
+      - name: Login to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-  - name: Docker Build
-    run: docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/my-app:${{ github.sha }} .
+      - name: Push Image
+        run: docker push ${{ secrets.DOCKERHUB_USERNAME }}/my-app:${{ github.sha }}
 
-  - name: Login to DockerHub
-    uses: docker/login-action@v3
-    with:
-      username: ${{ secrets.DOCKERHUB_USERNAME }}
-      password: ${{ secrets.DOCKERHUB_TOKEN }}
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
 
-  - name: Push Image
-    run: docker push ${{ secrets.DOCKERHUB_USERNAME }}/my-app:${{ github.sha }}
+      - name: Install kubectl
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y kubectl
 
+      - name: Save kubeconfig
+        run: |
+          mkdir -p ~/.kube
+          echo &quot;${{ secrets.KUBE_CONFIG }}&quot; > ~/.kube/config
 
-deploy:
-runs-on: ubuntu-latest
-needs: build
+      - name: Update image tag
+        run: |
+          sed -i &quot;s|latest|${{ github.sha }}|g&quot; k8s/deployment.yaml
 
+      - name: Deploy to Kubernetes
+        run: |
+          kubectl apply -f k8s/deployment.yaml
+          kubectl apply -f k8s/service.yaml
 
-steps:
-  - name: Checkout
-    uses: actions/checkout@v3
-
-  - name: Install kubectl
-    run: |
-      sudo apt-get update
-      sudo apt-get install -y kubectl
-
-  - name: Save kubeconfig
-    run: |
-      mkdir -p ~/.kube
-      echo "${{ secrets.KUBE_CONFIG }}" > ~/.kube/config
-
-  - name: Update image tag
-    run: |
-      sed -i "s|latest|${{ github.sha }}|g" k8s/deployment.yaml
-
-  - name: Deploy to Kubernetes
-    run: |
-      kubectl apply -f k8s/deployment.yaml
-      kubectl apply -f k8s/service.yaml
-
-  - name: Verify
-    run: kubectl get pods -o wide
+      - name: Verify
+        run: kubectl get pods -o wide
+```
 

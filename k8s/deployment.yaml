@@ -1,20 +1,21 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: demo-app
+  name: my-app
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: demo-app
+      app: my-app
   template:
     metadata:
       labels:
-        app: demo-app
+        app: my-app
     spec:
       containers:
-        - name: demo-app
-          image: <IMAGE_PLACEHOLDER>
+        - name: my-app
+          image: karthickkatty1/my-app:latest
           ports:
             - containerPort: 3000
+          imagePullPolicy: Always
 
